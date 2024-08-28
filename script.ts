@@ -1,5 +1,7 @@
-const GRID_ROWS = 20;
-const GRID_COLS = 20;
+const GRID_ROWS = 50;
+const GRID_COLS = 50;
+const PERIOD_DURATION = 100;
+let isGamePlaying = false;
 
 enum CellState {
   "alive",
@@ -11,15 +13,6 @@ enum Direction {
   "right",
   "bottom",
   "left",
-}
-
-class Canon {
-  direction: Direction;
-  constructor(d: Direction, x: number: y: number) {
-    this.direction = d;
-  }
-
-  shoot() {}
 }
 
 class Cell {
@@ -38,7 +31,8 @@ type GameState = Array<Array<Cell>>;
 function drawActiveCells(ctx: CanvasRenderingContext2D, state: GameState) {
   for (let y = 0; y < GRID_ROWS; ++y) {
     for (let x = 0; x < GRID_COLS; ++x) {
-      renderCell(ctx, state[y][x], x, y);
+      const item = state[y][x];
+      renderCell(ctx, item, x, y);
     }
   }
 }
@@ -79,14 +73,84 @@ function drawCanvasGrid(ctx: CanvasRenderingContext2D): void {
   }
 }
 
+function initBlock(state: GameState, x: number, y: number): void {
+  state[y][x] = new Cell(1);
+  state[y][x + 1] = new Cell(1);
+  state[y + 1][x] = new Cell(1);
+  state[y + 1][x + 1] = new Cell(1);
+}
+
+function initGlider(state: GameState, x: number, y: number): void {
+  state[y][x + 1] = new Cell(1);
+  state[y + 1][x + 2] = new Cell(1);
+  state[y + 2][x] = new Cell(1);
+  state[y + 2][x + 1] = new Cell(1);
+  state[y + 2][x + 2] = new Cell(1);
+}
+
+function initGosperGlider(state: GameState, x: number, y: number): void {
+  // First block (upper left)
+  state[y][x + 24] = new Cell(1);
+
+  // Second block
+  state[y + 1][x + 22] = new Cell(1);
+  state[y + 1][x + 24] = new Cell(1);
+
+  // Third block
+  state[y + 2][x + 12] = new Cell(1);
+  state[y + 2][x + 13] = new Cell(1);
+  state[y + 2][x + 20] = new Cell(1);
+  state[y + 2][x + 21] = new Cell(1);
+  state[y + 2][x + 34] = new Cell(1);
+  state[y + 2][x + 35] = new Cell(1);
+
+  // Fourth block
+  state[y + 3][x + 11] = new Cell(1);
+  state[y + 3][x + 15] = new Cell(1);
+  state[y + 3][x + 20] = new Cell(1);
+  state[y + 3][x + 21] = new Cell(1);
+  state[y + 3][x + 34] = new Cell(1);
+  state[y + 3][x + 35] = new Cell(1);
+
+  // Fifth block
+  state[y + 4][x + 0] = new Cell(1);
+  state[y + 4][x + 1] = new Cell(1);
+  state[y + 4][x + 10] = new Cell(1);
+  state[y + 4][x + 16] = new Cell(1);
+  state[y + 4][x + 20] = new Cell(1);
+  state[y + 4][x + 21] = new Cell(1);
+
+  // Sixth block
+  state[y + 5][x + 0] = new Cell(1);
+  state[y + 5][x + 1] = new Cell(1);
+  state[y + 5][x + 10] = new Cell(1);
+  state[y + 5][x + 14] = new Cell(1);
+  state[y + 5][x + 16] = new Cell(1);
+  state[y + 5][x + 17] = new Cell(1);
+  state[y + 5][x + 22] = new Cell(1);
+  state[y + 5][x + 24] = new Cell(1);
+
+  // Seventh block
+  state[y + 6][x + 10] = new Cell(1);
+  state[y + 6][x + 16] = new Cell(1);
+  state[y + 6][x + 24] = new Cell(1);
+
+  // Eighth block
+  state[y + 7][x + 11] = new Cell(1);
+  state[y + 7][x + 15] = new Cell(1);
+
+  // Ninth block
+  state[y + 8][x + 12] = new Cell(1);
+  state[y + 8][x + 13] = new Cell(1);
+}
+
 function initGameOfLife(): GameState {
   const result: GameState = zeroInitGameState();
 
-  result[6][2] = new Cell(1);
-  result[6][3] = new Cell(1);
-  result[7][2] = new Cell(1);
-  result[7][3] = new Cell(1);
-  // result[10][8] = new Canon("");
+  // initBlock(result, 4, 4);
+  // initGlider(result, 7, 8);
+  initGosperGlider(result, 5, 5);
+
   return result;
 }
 
@@ -126,7 +190,11 @@ function getNextCellState(state: GameState, x: number, y: number): Cell {
     if (n.isAlive()) count++;
   }
 
-  return [2, 3].includes(count) ? new Cell(1) : new Cell(0);
+  if (state[y][x].isAlive()) {
+    return [2, 3].includes(count) ? new Cell(1) : new Cell(0);
+  } else {
+    return [3].includes(count) ? new Cell(1) : new Cell(0);
+  }
 }
 
 function zeroInitGameState(): GameState {
@@ -151,7 +219,10 @@ function getNextState(state: GameState): GameState {
   return result;
 }
 
-window.addEventListener("keypress", async () => {
+window.addEventListener("keypress", async (e: KeyboardEvent) => {
+  if (e.key === " ") {
+    isGamePlaying = !isGamePlaying;
+  }
   const canvas: HTMLCanvasElement | null = document.querySelector("canvas");
   if (canvas === null) {
     throw new Error("No canvas found in document");
@@ -168,11 +239,13 @@ window.addEventListener("keypress", async () => {
 
   renderScene(ctx, state);
 
-  for (;;) {
-    await sleep(1000);
+  while (isGamePlaying) {
+    await sleep(PERIOD_DURATION);
     state = getNextState(state);
     renderScene(ctx, state);
   }
+
+  ctx.reset();
 });
 
 (async () => {})();

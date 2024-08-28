@@ -8,8 +8,10 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-const GRID_ROWS = 20;
-const GRID_COLS = 20;
+const GRID_ROWS = 50;
+const GRID_COLS = 50;
+const PERIOD_DURATION = 100;
+let isGamePlaying = false;
 var CellState;
 (function (CellState) {
     CellState[CellState["alive"] = 0] = "alive";
@@ -22,12 +24,6 @@ var Direction;
     Direction[Direction["bottom"] = 2] = "bottom";
     Direction[Direction["left"] = 3] = "left";
 })(Direction || (Direction = {}));
-class Canon {
-    constructor(d, x, y) {
-        this.direction = d;
-    }
-    shoot() { }
-}
 class Cell {
     constructor(s) {
         this.state = s;
@@ -39,7 +35,8 @@ class Cell {
 function drawActiveCells(ctx, state) {
     for (let y = 0; y < GRID_ROWS; ++y) {
         for (let x = 0; x < GRID_COLS; ++x) {
-            renderCell(ctx, state[y][x], x, y);
+            const item = state[y][x];
+            renderCell(ctx, item, x, y);
         }
     }
 }
@@ -71,13 +68,71 @@ function drawCanvasGrid(ctx) {
         ctx.stroke();
     }
 }
+function initBlock(state, x, y) {
+    state[y][x] = new Cell(1);
+    state[y][x + 1] = new Cell(1);
+    state[y + 1][x] = new Cell(1);
+    state[y + 1][x + 1] = new Cell(1);
+}
+function initGlider(state, x, y) {
+    state[y][x + 1] = new Cell(1);
+    state[y + 1][x + 2] = new Cell(1);
+    state[y + 2][x] = new Cell(1);
+    state[y + 2][x + 1] = new Cell(1);
+    state[y + 2][x + 2] = new Cell(1);
+}
+function initGosperGlider(state, x, y) {
+    // First block (upper left)
+    state[y][x + 24] = new Cell(1);
+    // Second block
+    state[y + 1][x + 22] = new Cell(1);
+    state[y + 1][x + 24] = new Cell(1);
+    // Third block
+    state[y + 2][x + 12] = new Cell(1);
+    state[y + 2][x + 13] = new Cell(1);
+    state[y + 2][x + 20] = new Cell(1);
+    state[y + 2][x + 21] = new Cell(1);
+    state[y + 2][x + 34] = new Cell(1);
+    state[y + 2][x + 35] = new Cell(1);
+    // Fourth block
+    state[y + 3][x + 11] = new Cell(1);
+    state[y + 3][x + 15] = new Cell(1);
+    state[y + 3][x + 20] = new Cell(1);
+    state[y + 3][x + 21] = new Cell(1);
+    state[y + 3][x + 34] = new Cell(1);
+    state[y + 3][x + 35] = new Cell(1);
+    // Fifth block
+    state[y + 4][x + 0] = new Cell(1);
+    state[y + 4][x + 1] = new Cell(1);
+    state[y + 4][x + 10] = new Cell(1);
+    state[y + 4][x + 16] = new Cell(1);
+    state[y + 4][x + 20] = new Cell(1);
+    state[y + 4][x + 21] = new Cell(1);
+    // Sixth block
+    state[y + 5][x + 0] = new Cell(1);
+    state[y + 5][x + 1] = new Cell(1);
+    state[y + 5][x + 10] = new Cell(1);
+    state[y + 5][x + 14] = new Cell(1);
+    state[y + 5][x + 16] = new Cell(1);
+    state[y + 5][x + 17] = new Cell(1);
+    state[y + 5][x + 22] = new Cell(1);
+    state[y + 5][x + 24] = new Cell(1);
+    // Seventh block
+    state[y + 6][x + 10] = new Cell(1);
+    state[y + 6][x + 16] = new Cell(1);
+    state[y + 6][x + 24] = new Cell(1);
+    // Eighth block
+    state[y + 7][x + 11] = new Cell(1);
+    state[y + 7][x + 15] = new Cell(1);
+    // Ninth block
+    state[y + 8][x + 12] = new Cell(1);
+    state[y + 8][x + 13] = new Cell(1);
+}
 function initGameOfLife() {
     const result = zeroInitGameState();
-    result[6][2] = new Cell(1);
-    result[6][3] = new Cell(1);
-    result[7][2] = new Cell(1);
-    result[7][3] = new Cell(1);
-    // result[10][8] = new Canon("");
+    // initBlock(result, 4, 4);
+    // initGlider(result, 7, 8);
+    initGosperGlider(result, 5, 5);
     return result;
 }
 function sleep(ms = 1000) {
@@ -112,7 +167,12 @@ function getNextCellState(state, x, y) {
         if (n.isAlive())
             count++;
     }
-    return [2, 3].includes(count) ? new Cell(1) : new Cell(0);
+    if (state[y][x].isAlive()) {
+        return [2, 3].includes(count) ? new Cell(1) : new Cell(0);
+    }
+    else {
+        return [3].includes(count) ? new Cell(1) : new Cell(0);
+    }
 }
 function zeroInitGameState() {
     const result = [];
@@ -134,7 +194,10 @@ function getNextState(state) {
     }
     return result;
 }
-window.addEventListener("keypress", () => __awaiter(void 0, void 0, void 0, function* () {
+window.addEventListener("keypress", (e) => __awaiter(void 0, void 0, void 0, function* () {
+    if (e.key === " ") {
+        isGamePlaying = !isGamePlaying;
+    }
     const canvas = document.querySelector("canvas");
     if (canvas === null) {
         throw new Error("No canvas found in document");
@@ -145,11 +208,12 @@ window.addEventListener("keypress", () => __awaiter(void 0, void 0, void 0, func
     }
     let state = initGameOfLife();
     renderScene(ctx, state);
-    for (;;) {
-        yield sleep(1000);
+    while (isGamePlaying) {
+        yield sleep(PERIOD_DURATION);
         state = getNextState(state);
         renderScene(ctx, state);
     }
+    ctx.reset();
 }));
 (() => __awaiter(void 0, void 0, void 0, function* () { }))();
 //# sourceMappingURL=script.js.map
