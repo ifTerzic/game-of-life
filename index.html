@@ -10,20 +10,32 @@
       left: 50%;
       transform: translate(-50%, -50%);
     }
+
+    kbd {
+      border-radius: 2px;
+      padding: 2px;
+      border: 1px solid black;
+    }
   </style>
 </head>
 
 <body>
-  <div>
-    Press key to start the <i>Game of Life</i>
-    Keymaps:
+
+  <aside>
+    Legend:
     <ul>
       <li>
-        Space: Toggle Game of Life.
+        Press <kbd>Enter</kbd> to start/stop the Game of Life.
+      </li>
+      <li>
+        Toggle cells from alive to dead with your <kbd>Mouse</kbd>.
       </li>
     </ul>
-  </div>
-  <canvas height="600" width="600"> </canvas>
+  </aside>
+
+  <article>
+    <canvas height="600" width="600"> </canvas>
+  </article>
   <script defer src="script.js"> </script>
 </body>
 

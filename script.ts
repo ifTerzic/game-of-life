@@ -1,57 +1,75 @@
+class Cell {
+  state: CellState;
+  constructor(s: CellState) {
+    this.state = s;
+  }
+  isAlive() {
+    return this.state === 1;
+  }
+  toggle() {
+    this.state = 1 - this.state;
+  }
+}
+
 const GRID_ROWS = 50;
 const GRID_COLS = 50;
 const PERIOD_DURATION = 100;
 let isGamePlaying = false;
+let globalGameState: GameState = [];
 
 enum CellState {
   "alive",
   "dead",
 }
 
-enum Direction {
-  "top",
-  "right",
-  "bottom",
-  "left",
-}
-
-class Cell {
-  state: CellState;
-  constructor(s: CellState) {
-    this.state = s;
-  }
-
-  isAlive() {
-    return this.state === 1;
-  }
-}
-
 type GameState = Array<Array<Cell>>;
 
-function drawActiveCells(ctx: CanvasRenderingContext2D, state: GameState) {
+function drawActiveCells(ctx: CanvasRenderingContext2D) {
   for (let y = 0; y < GRID_ROWS; ++y) {
     for (let x = 0; x < GRID_COLS; ++x) {
-      const item = state[y][x];
+      const item = globalGameState[y][x];
       renderCell(ctx, item, x, y);
     }
   }
 }
 
-function renderScene(ctx: CanvasRenderingContext2D, state: GameState) {
+function initGridEventHandler(ctx: CanvasRenderingContext2D) {
+  ctx.canvas.addEventListener("click", (e) => {
+    const x = Math.floor((e.offsetX / ctx.canvas.width) * GRID_COLS);
+    const y = Math.floor((e.offsetY / ctx.canvas.height) * GRID_COLS);
+    globalGameState[y][x].toggle();
+    renderCell(ctx, globalGameState[y][x], x, y);
+  });
+}
+
+function initEmptyGrid(ctx: CanvasRenderingContext2D) {
   ctx.reset();
   ctx.scale(ctx.canvas.width / GRID_COLS, ctx.canvas.height / GRID_ROWS);
 
   drawCanvasGrid(ctx);
-  drawActiveCells(ctx, state);
 }
 
+function renderScene(ctx: CanvasRenderingContext2D) {
+  ctx.reset();
+  ctx.scale(ctx.canvas.width / GRID_COLS, ctx.canvas.height / GRID_ROWS);
+
+  drawCanvasGrid(ctx);
+  drawActiveCells(ctx);
+}
+
+function clearRect(ctx: CanvasRenderingContext2D, x: number, y: number) {
+  ctx.clearRect(x + 0.05, y + 0.05, 0.9, 0.9);
+}
 function renderCell(
   ctx: CanvasRenderingContext2D,
   cell: Cell,
   x: number,
   y: number,
 ): void {
-  if (!cell.isAlive()) return;
+  if (!cell.isAlive()) {
+    clearRect(ctx, x, y);
+    return;
+  }
   ctx.fillStyle = "black";
   ctx.fillRect(x + 0.05, y + 0.05, 0.9, 0.9);
 }
@@ -168,7 +186,7 @@ function isYOutOfBound(y: number): boolean {
   return y < 0 || y >= GRID_ROWS;
 }
 
-function getNextCellState(state: GameState, x: number, y: number): Cell {
+function getNextCellState(x: number, y: number): Cell {
   let count = 0;
 
   const directions = [
@@ -186,11 +204,11 @@ function getNextCellState(state: GameState, x: number, y: number): Cell {
     const nx = x + dx;
     const ny = y + dy;
     if (isXOutOfBound(nx) || isYOutOfBound(ny)) continue;
-    const n = state[ny][nx];
+    const n = globalGameState[ny][nx];
     if (n.isAlive()) count++;
   }
 
-  if (state[y][x].isAlive()) {
+  if (globalGameState[y][x].isAlive()) {
     return [2, 3].includes(count) ? new Cell(1) : new Cell(0);
   } else {
     return [3].includes(count) ? new Cell(1) : new Cell(0);
@@ -209,20 +227,19 @@ function zeroInitGameState(): GameState {
   return result;
 }
 
-function getNextState(state: GameState): GameState {
+function getNextState(): GameState {
   const result: GameState = zeroInitGameState();
   for (let y = 0; y < GRID_ROWS; ++y) {
     for (let x = 0; x < GRID_COLS; ++x) {
-      result[y][x] = getNextCellState(state, x, y);
+      result[y][x] = getNextCellState(x, y);
     }
   }
   return result;
 }
 
-window.addEventListener("keypress", async (e: KeyboardEvent) => {
-  if (e.key === " ") {
-    isGamePlaying = !isGamePlaying;
-  }
+window.addEventListener("keyup", async (e: KeyboardEvent) => {
+  if (e.key !== " ") return;
+  isGamePlaying = !isGamePlaying;
   const canvas: HTMLCanvasElement | null = document.querySelector("canvas");
   if (canvas === null) {
     throw new Error("No canvas found in document");
@@ -235,17 +252,27 @@ window.addEventListener("keypress", async (e: KeyboardEvent) => {
     );
   }
 
-  let state: GameState = initGameOfLife();
-
-  renderScene(ctx, state);
-
   while (isGamePlaying) {
     await sleep(PERIOD_DURATION);
-    state = getNextState(state);
-    renderScene(ctx, state);
+    globalGameState = getNextState();
+    renderScene(ctx);
   }
-
-  ctx.reset();
 });
 
-(async () => {})();
+(async () => {
+  const canvas: HTMLCanvasElement | null = document.querySelector("canvas");
+  if (canvas === null) {
+    throw new Error("No canvas found in document");
+  }
+
+  const ctx: CanvasRenderingContext2D | null = canvas.getContext("2d");
+  if (ctx === null) {
+    throw new Error(
+      "2D Rendering context not supported by your browser - kekw",
+    );
+  }
+
+  globalGameState = initGameOfLife();
+  initGridEventHandler(ctx);
+  renderScene(ctx);
+})();
